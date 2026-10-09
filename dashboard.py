@@ -2,15 +2,20 @@
 
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import pandas as pd
+import seaborn as sns
 import streamlit as st
 
 
 # --------------------------------------------------
-# 1. PROJECT CONFIGURATION
+# 1. PROJECT PATHS AND CONFIGURATION
 # --------------------------------------------------
 
 PROJECT_DIR = Path(__file__).resolve().parent
+
+OUTPUT_DIR = PROJECT_DIR / "outputs"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 DATA_PATHS = [
     PROJECT_DIR / "data" / "cleandata" /
@@ -31,23 +36,21 @@ st.set_page_config(
     layout="wide",
 )
 
+sns.set_theme(style="whitegrid")
+
 
 # --------------------------------------------------
-# 3. DASHBOARD CSS
+# 3. DASHBOARD STYLING
 # --------------------------------------------------
 
 st.markdown(
     """
     <style>
-        /* Main background and text */
-        .stApp {
-            background-color: #f7f8fa !important;
-            color: #20252b !important;
-        }
-
+        .stApp,
         [data-testid="stAppViewContainer"],
         [data-testid="stMain"] {
             background-color: #f7f8fa !important;
+            color: #20252b !important;
         }
 
         [data-testid="stHeader"] {
@@ -60,10 +63,7 @@ st.markdown(
             max-width: 1400px;
         }
 
-        /* Main headings */
-        .stApp h1,
-        .stApp h2,
-        .stApp h3,
+        h1, h2, h3,
         [data-testid="stHeading"] h1,
         [data-testid="stHeading"] h2,
         [data-testid="stHeading"] h3 {
@@ -72,53 +72,10 @@ st.markdown(
             visibility: visible !important;
         }
 
-        /* Normal text */
-        [data-testid="stMarkdownContainer"] p,
-        [data-testid="stMarkdownContainer"] strong,
-        [data-testid="stCaptionContainer"] p {
-            color: #344054 !important;
-            opacity: 1 !important;
-        }
-
-        /* Metric cards */
-        [data-testid="stMetric"] {
-            background-color: #ffffff !important;
-            border: 1px solid #d9dfe7 !important;
-            border-radius: 6px !important;
-            padding: 16px !important;
-            opacity: 1 !important;
-            visibility: visible !important;
-        }
-
-        /* Metric labels */
-        [data-testid="stMetricLabel"],
-        [data-testid="stMetricLabel"] *,
-        [data-testid="stMetricLabel"] p {
-            color: #344054 !important;
-            -webkit-text-fill-color: #344054 !important;
-            opacity: 1 !important;
-            visibility: visible !important;
-        }
-
-        /* Metric numbers */
-        [data-testid="stMetricValue"],
-        [data-testid="stMetricValue"] *,
-        [data-testid="stMetricValue"] div {
-            color: #172033 !important;
-            -webkit-text-fill-color: #172033 !important;
-            opacity: 1 !important;
-            visibility: visible !important;
-        }
-
-        /* Metric delta, if displayed */
-        [data-testid="stMetricDelta"],
-        [data-testid="stMetricDelta"] * {
-            opacity: 1 !important;
-            visibility: visible !important;
-        }
-
-        /* Section headings */
         .section-heading {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
             background-color: #e8edf3 !important;
             color: #172033 !important;
             border-left: 5px solid #294765;
@@ -132,19 +89,40 @@ st.markdown(
             visibility: visible !important;
         }
 
-        /* Tabs */
-        [data-testid="stTabs"] button,
-        [data-baseweb="tab"] {
-            color: #20252b !important;
+        .metric-card {
+            min-height: 92px;
+            box-sizing: border-box;
+            padding: 14px;
+            background: #ffffff !important;
+            border: 1px solid #d9dfe7;
+            border-radius: 6px;
+            color: #172033 !important;
+        }
+
+        .metric-label {
+            color: #4b5563 !important;
+            font-size: 14px;
+            margin-bottom: 8px;
             opacity: 1 !important;
         }
 
-        /* Select box labels */
-        [data-testid="stSelectbox"] label {
-            color: #20252b !important;
+        .metric-value {
+            color: #172033 !important;
+            font-size: 25px;
+            font-weight: 700;
+            line-height: 1.25;
+            opacity: 1 !important;
         }
 
-        /* Dividers */
+        [data-testid="stMarkdownContainer"] p,
+        [data-testid="stCaptionContainer"] p,
+        [data-testid="stTabs"] button,
+        [data-baseweb="tab"],
+        [data-testid="stSelectbox"] label {
+            color: #344054 !important;
+            opacity: 1 !important;
+        }
+
         hr {
             border-color: #d9dfe7 !important;
         }
@@ -155,16 +133,45 @@ st.markdown(
 
 
 # --------------------------------------------------
-# 4. SECTION HEADING FUNCTION
+# 4. HELPER FUNCTIONS
 # --------------------------------------------------
 
-def section_heading(title):
+def section_heading(title: str) -> None:
     """Display a clearly visible section heading."""
 
     st.markdown(
         f'<div class="section-heading">{title}</div>',
         unsafe_allow_html=True,
     )
+
+
+def metric_card(label: str, value: str) -> None:
+    """Display a simple metric card with readable text."""
+
+    st.markdown(
+        f"""
+        <div class="metric-card">
+            <div class="metric-label">{label}</div>
+            <div class="metric-value">{value}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def display_chart(fig, filename: str) -> None:
+    """Save and display a chart."""
+
+    fig.tight_layout()
+
+    fig.savefig(
+        OUTPUT_DIR / filename,
+        dpi=300,
+        bbox_inches="tight",
+    )
+
+    st.pyplot(fig, use_container_width=True)
+    plt.close(fig)
 
 
 # --------------------------------------------------
@@ -181,7 +188,7 @@ st.divider()
 
 
 # --------------------------------------------------
-# 6. LOAD DATA
+# 6. LOAD CLEANED DATASET
 # --------------------------------------------------
 
 csv_path = next(
@@ -191,8 +198,8 @@ csv_path = next(
 
 if csv_path is None:
     st.warning(
-        "Cleaned dataset was not found. "
-        "Run python main.py first to generate the cleaned dataset."
+        "Cleaned data was not found. Run python main.py first, "
+        "then make sure the cleaned CSV is included in GitHub."
     )
     st.stop()
 
@@ -200,12 +207,12 @@ try:
     df = pd.read_csv(csv_path)
 
 except (OSError, pd.errors.ParserError, UnicodeDecodeError) as exc:
-    st.error(f"Could not read the dataset: {exc}")
+    st.error(f"Could not read the cleaned dataset: {exc}")
     st.stop()
 
 
 # --------------------------------------------------
-# 7. VALIDATE COLUMNS
+# 7. VALIDATE REQUIRED COLUMNS
 # --------------------------------------------------
 
 required_columns = {
@@ -220,18 +227,20 @@ required_columns = {
     "Seasonality",
 }
 
-missing_columns = required_columns - set(df.columns)
+missing_columns = sorted(
+    required_columns - set(df.columns)
+)
 
 if missing_columns:
     st.error(
-        "The dataset is missing these columns: "
-        + ", ".join(sorted(missing_columns))
+        "The cleaned dataset is missing required columns: "
+        + ", ".join(missing_columns)
     )
     st.stop()
 
 
 # --------------------------------------------------
-# 8. DATA PREPROCESSING
+# 8. DATA PREPARATION
 # --------------------------------------------------
 
 df["Date"] = pd.to_datetime(
@@ -255,24 +264,31 @@ for column in numeric_columns:
         errors="coerce",
     )
 
+df["Category"] = df["Category"].fillna("Unknown")
+df["Seasonality"] = df["Seasonality"].fillna("Unknown")
+df["Product ID"] = df["Product ID"].fillna("Unknown")
+df["Discount"] = df["Discount"].fillna(0)
+
 df = df.dropna(
     subset=["Units Sold", "Price"]
 ).copy()
 
 if df.empty:
-    st.warning("No valid records are available in the dataset.")
+    st.warning(
+        "There are no valid dated sales records in the dataset."
+    )
     st.stop()
 
-# Calculate revenue using the existing dataset columns.
+# Calculate revenue using existing dataset columns.
 df["Total Revenue"] = (
     df["Units Sold"]
     * df["Price"]
-    * (1 - df["Discount"].fillna(0) / 100)
+    * (1 - df["Discount"] / 100)
 )
 
 
 # --------------------------------------------------
-# 9. PRODUCT SUMMARY
+# 9. PRODUCT SUMMARY AND INVENTORY STATUS
 # --------------------------------------------------
 
 product_summary = (
@@ -286,7 +302,6 @@ product_summary = (
     .reset_index()
 )
 
-# Existing stock classification rules.
 product_summary["Stock Status"] = "Optimal"
 
 product_summary.loc[
@@ -332,31 +347,27 @@ average_price = df["Price"].mean()
 k1, k2, k3, k4 = st.columns(4)
 
 with k1:
-    st.metric(
-        label="Total Revenue",
-        value=f"${total_revenue:,.2f}",
+    metric_card(
+        "Total Revenue",
+        f"${total_revenue:,.2f}",
     )
 
 with k2:
-    st.metric(
-        label="Units Sold",
-        value=f"{total_units:,.0f}",
+    metric_card(
+        "Units Sold",
+        f"{total_units:,.0f}",
     )
 
 with k3:
-    st.metric(
-        label="Average Unit Price",
-        value=f"${average_price:,.2f}",
+    metric_card(
+        "Average Unit Price",
+        f"${average_price:,.2f}",
     )
 
 with k4:
-    st.metric(
-        label="Forecast MAE",
-        value=(
-            f"{mae:,.2f} units"
-            if pd.notna(mae)
-            else "N/A"
-        ),
+    metric_card(
+        "Forecast MAE",
+        f"{mae:,.2f} units" if pd.notna(mae) else "N/A",
     )
 
 
@@ -381,26 +392,26 @@ over_count = int(
 s1, s2, s3 = st.columns(3)
 
 with s1:
-    st.metric(
-        label="Under-stocked Products",
-        value=f"{under_count:,}",
+    metric_card(
+        "Under-stocked Products",
+        f"{under_count:,}",
     )
 
 with s2:
-    st.metric(
-        label="Optimal Stock",
-        value=f"{optimal_count:,}",
+    metric_card(
+        "Optimal Stock",
+        f"{optimal_count:,}",
     )
 
 with s3:
-    st.metric(
-        label="Over-stocked Products",
-        value=f"{over_count:,}",
+    metric_card(
+        "Over-stocked Products",
+        f"{over_count:,}",
     )
 
 st.caption(
-    "Under-stocked: inventory below 3 times average daily demand. "
-    "Over-stocked: inventory above 15 times average daily demand."
+    "Stock status rule: below 3 times average daily demand "
+    "is under-stocked; above 15 times is over-stocked."
 )
 
 
@@ -413,160 +424,323 @@ section_heading("Charts")
 chart_left, chart_right = st.columns(2)
 
 
-# Chart 1: Daily Demand and Moving Average
+# Chart 1: Revenue by Category
+# --------------------------------------------------
 
-daily_demand = (
-    df.groupby("Date", as_index=False)["Units Sold"]
-    .sum()
-    .sort_values("Date")
-)
-
-daily_demand["7-Day Moving Average"] = (
-    daily_demand["Units Sold"]
-    .rolling(window=7, min_periods=1)
-    .mean()
-)
-
-with chart_left:
-    st.markdown("**Daily Demand and 7-Day Moving Average**")
-
-    st.line_chart(
-        daily_demand.set_index("Date")[
-            ["Units Sold", "7-Day Moving Average"]
-        ],
-        use_container_width=True,
-    )
-
-
-# Chart 2: Revenue by Category
-
-category_revenue = (
+category_summary = (
     df.groupby("Category", as_index=False)["Total Revenue"]
     .sum()
     .sort_values("Total Revenue", ascending=False)
 )
 
-with chart_right:
-    st.markdown("**Revenue by Category**")
-
-    st.bar_chart(
-        category_revenue.set_index("Category")[["Total Revenue"]],
-        use_container_width=True,
+with chart_left:
+    st.markdown(
+        "**Total Revenue Distribution by Product Category**"
     )
 
+    if category_summary.empty:
+        st.info("No category revenue data is available.")
 
-# Chart 3: Top 10 Products by Demand
+    else:
+        fig, ax = plt.subplots(figsize=(10, 5))
+
+        sns.barplot(
+            data=category_summary,
+            x="Category",
+            y="Total Revenue",
+            hue="Category",
+            palette="Blues_d",
+            legend=False,
+            ax=ax,
+        )
+
+        for container in ax.containers:
+            ax.bar_label(
+                container,
+                fmt="%.2f",
+                padding=3,
+                fontsize=8,
+            )
+
+        ax.set_title(
+            "Total Revenue Distribution by Product Category"
+        )
+        ax.set_xlabel("Category")
+        ax.set_ylabel("Total Revenue ($)")
+        ax.tick_params(
+            axis="x",
+            labelrotation=45,
+        )
+
+        display_chart(
+            fig,
+            "01_category_revenue.png",
+        )
+
+
+# Chart 2: Units Sold by Seasonality
+# --------------------------------------------------
+
+seasonal_units = (
+    df.groupby("Seasonality")["Units Sold"].sum()
+)
+
+with chart_right:
+    st.markdown("**Total Units Sold by Seasonality**")
+
+    if seasonal_units.empty or seasonal_units.sum() == 0:
+        st.info("No seasonal sales data is available.")
+
+    else:
+        fig, ax = plt.subplots(figsize=(6, 6))
+
+        ax.pie(
+            seasonal_units,
+            labels=seasonal_units.index,
+            autopct="%1.1f%%",
+            startangle=130,
+            colors=sns.color_palette(
+                "Set2",
+                n_colors=len(seasonal_units),
+            ),
+        )
+
+        ax.set_title("Total Units Sold by Seasonality")
+
+        display_chart(
+            fig,
+            "02_seasonal_units_distribution.png",
+        )
+
+
+# Chart 3: Top 10 Demand Products
+# --------------------------------------------------
+
+top_10 = (
+    product_summary
+    .sort_values(
+        by="Total_Demand",
+        ascending=False,
+    )
+    .head(10)
+)
 
 chart_left, chart_right = st.columns(2)
 
-top_products = (
-    product_summary
-    .sort_values("Total_Demand", ascending=False)
-    .head(10)
-    .sort_values("Total_Demand", ascending=True)
-)
-
 with chart_left:
-    st.markdown("**Top 10 Products by Demand**")
+    st.markdown("**Top 10 Highest Demand Products**")
 
-    st.bar_chart(
-        top_products.set_index("Product ID")[["Total_Demand"]],
-        use_container_width=True,
-    )
+    if top_10.empty:
+        st.info("No product demand data is available.")
+
+    else:
+        fig, ax = plt.subplots(figsize=(12, 6))
+
+        sns.barplot(
+            data=top_10,
+            x="Total_Demand",
+            y="Product ID",
+            hue="Product ID",
+            palette="viridis",
+            legend=False,
+            ax=ax,
+        )
+
+        for container in ax.containers:
+            ax.bar_label(
+                container,
+                fmt="%.0f",
+                padding=3,
+                fontsize=8,
+            )
+
+        ax.set_title("Top 10 Highest Demand Products")
+        ax.set_xlabel("Total Units Sold")
+        ax.set_ylabel("Product ID")
+
+        display_chart(
+            fig,
+            "03_top_demand_products.png",
+        )
 
 
-# Chart 4: Actual Demand vs Forecast
+# Chart 4: Daily Demand and Moving Average
+# --------------------------------------------------
 
-daily_forecast = (
-    df.groupby("Date", as_index=False)[
-        ["Units Sold", "Demand Forecast"]
-    ]
-    .sum(min_count=1)
+daily_demand = (
+    df.groupby("Date")["Units Sold"]
+    .sum()
+    .reset_index()
     .sort_values("Date")
 )
 
-with chart_right:
-    st.markdown("**Actual Demand vs Forecast**")
+daily_demand["7_Day_Moving_Avg"] = (
+    daily_demand["Units Sold"]
+    .rolling(
+        window=7,
+        min_periods=1,
+    )
+    .mean()
+)
 
-    st.line_chart(
-        daily_forecast.set_index("Date")[
-            ["Units Sold", "Demand Forecast"]
-        ],
-        use_container_width=True,
+with chart_right:
+    st.markdown(
+        "**Daily Total Demand with 7-Day Moving Average**"
     )
 
+    if daily_demand.empty:
+        st.info("No daily demand data is available.")
 
-# Chart 5: Units Sold by Seasonality
+    else:
+        fig, ax = plt.subplots(figsize=(12, 6))
+
+        ax.plot(
+            daily_demand["Date"],
+            daily_demand["Units Sold"],
+            alpha=0.3,
+            label="Daily Units Sold",
+            color="gray",
+        )
+
+        ax.plot(
+            daily_demand["Date"],
+            daily_demand["7_Day_Moving_Avg"],
+            label="7-Day Moving Average Trend",
+            color="red",
+            linewidth=2,
+        )
+
+        ax.set_title(
+            "Daily Total Demand with 7-Day Moving Average"
+        )
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Units Sold")
+        ax.legend()
+
+        display_chart(
+            fig,
+            "04_demand_trend_7day_moving_avg.png",
+        )
+
+
+# Chart 5: Forecast vs Actual
+# --------------------------------------------------
 
 chart_left, chart_right = st.columns(2)
 
-seasonal_units = (
-    df.groupby("Seasonality", as_index=False)["Units Sold"]
-    .sum()
-    .sort_values("Units Sold", ascending=False)
-)
-
 with chart_left:
-    st.markdown("**Units Sold by Seasonality**")
-
-    st.bar_chart(
-        seasonal_units.set_index("Seasonality")[["Units Sold"]],
-        use_container_width=True,
+    st.markdown(
+        "**Baseline Demand Forecast vs Actual Units Sold**"
     )
 
+    df_forecast = df.dropna(
+        subset=["Demand Forecast", "Units Sold"]
+    ).copy()
 
-# Chart 6: Units Sold by Category
+    if df_forecast.empty:
+        st.info(
+            "No data is available for forecast comparison."
+        )
 
-category_demand = (
-    df.groupby("Category", as_index=False)["Units Sold"]
-    .sum()
-    .sort_values("Units Sold", ascending=False)
-)
-
-with chart_right:
-    st.markdown("**Units Sold by Category**")
-
-    st.bar_chart(
-        category_demand.set_index("Category")[["Units Sold"]],
-        use_container_width=True,
-    )
-
-
-# --------------------------------------------------
-# 14. FORECAST CHECK
-# --------------------------------------------------
-
-section_heading("Forecast Check")
-
-scatter_data = forecast_rows[
-    ["Demand Forecast", "Units Sold"]
-].dropna()
-
-if not scatter_data.empty:
-
-    if len(scatter_data) > 1000:
-        scatter_data = scatter_data.sample(
-            n=1000,
+    else:
+        sample_data = df_forecast.sample(
+            n=min(1000, len(df_forecast)),
             random_state=42,
         )
 
-    st.markdown("**Forecasted Units vs Actual Units**")
+        fig, ax = plt.subplots(figsize=(10, 6))
 
-    st.scatter_chart(
-        scatter_data,
-        x="Demand Forecast",
-        y="Units Sold",
-        use_container_width=True,
-    )
+        sns.scatterplot(
+            data=sample_data,
+            x="Demand Forecast",
+            y="Units Sold",
+            alpha=0.5,
+            color="teal",
+            ax=ax,
+        )
 
-else:
-    st.info(
-        "No data is available for forecast comparison."
+        max_value = max(
+            float(df_forecast["Demand Forecast"].max()),
+            float(df_forecast["Units Sold"].max()),
+        )
+
+        if pd.notna(max_value) and max_value > 0:
+            ax.plot(
+                [0, max_value],
+                [0, max_value],
+                "r--",
+                label="Ideal Forecast",
+            )
+
+        ax.set_title(
+            "Baseline Demand Forecast vs Actual Units Sold"
+        )
+        ax.set_xlabel("Baseline Forecasted Demand")
+        ax.set_ylabel("Actual Units Sold")
+        ax.legend()
+
+        display_chart(
+            fig,
+            "05_forecast_vs_actual.png",
+        )
+
+
+# Chart 6: High-Demand Categories
+# --------------------------------------------------
+
+category_demand = (
+    df.groupby("Category")["Units Sold"]
+    .sum()
+    .reset_index()
+    .sort_values(
+        by="Units Sold",
+        ascending=False,
     )
+)
+
+with chart_right:
+    st.markdown("**High-Demand Product Categories**")
+
+    if category_demand.empty:
+        st.info("No category demand data is available.")
+
+    else:
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        sns.barplot(
+            data=category_demand,
+            x="Category",
+            y="Units Sold",
+            hue="Category",
+            palette="magma",
+            legend=False,
+            ax=ax,
+        )
+
+        for container in ax.containers:
+            ax.bar_label(
+                container,
+                fmt="%.0f",
+                padding=3,
+                fontsize=8,
+            )
+
+        ax.set_title("High-Demand Product Categories")
+        ax.set_xlabel("Product Category")
+        ax.set_ylabel("Total Units Sold")
+        ax.tick_params(
+            axis="x",
+            labelrotation=45,
+        )
+
+        display_chart(
+            fig,
+            "06_high_demand_categories.png",
+        )
 
 
 # --------------------------------------------------
-# 15. PRODUCT DEMAND TABLES
+# 14. PRODUCT DEMAND TABLES
 # --------------------------------------------------
 
 section_heading("Product Demand")
@@ -580,42 +754,40 @@ tab1, tab2, tab3 = st.tabs(
 )
 
 
-# Highest demand products
+# Highest-demand products
 with tab1:
-    highest_demand = (
-        product_summary
-        .sort_values("Total_Demand", ascending=False)
-        .head(10)
-        .round(2)
-    )
-
     st.dataframe(
-        highest_demand,
+        product_summary
+        .sort_values(
+            "Total_Demand",
+            ascending=False,
+        )
+        .head(10)
+        .round(2),
         use_container_width=True,
         hide_index=True,
     )
 
 
-# Lowest demand products
+# Lowest-demand products
 with tab2:
-    lowest_demand = (
-        product_summary
-        .sort_values("Total_Demand", ascending=True)
-        .head(10)
-        .round(2)
-    )
-
     st.dataframe(
-        lowest_demand,
+        product_summary
+        .sort_values(
+            "Total_Demand",
+            ascending=True,
+        )
+        .head(10)
+        .round(2),
         use_container_width=True,
         hide_index=True,
     )
 
 
-# Filter products by stock status
+# Stock status filter
 with tab3:
     status_filter = st.selectbox(
-        "Filter by Stock Status",
+        "Filter by stock status",
         [
             "All",
             "Under-stocked",
@@ -626,6 +798,7 @@ with tab3:
 
     if status_filter == "All":
         shown_products = product_summary
+
     else:
         shown_products = product_summary[
             product_summary["Stock Status"] == status_filter
@@ -633,7 +806,10 @@ with tab3:
 
     st.dataframe(
         shown_products
-        .sort_values("Total_Demand", ascending=False)
+        .sort_values(
+            "Total_Demand",
+            ascending=False,
+        )
         .round(2),
         use_container_width=True,
         hide_index=True,
@@ -641,13 +817,13 @@ with tab3:
 
 
 # --------------------------------------------------
-# 16. FOOTER
+# 15. FOOTER
 # --------------------------------------------------
 
 st.divider()
 
 st.caption(
-    f"Data period: {df['Date'].min():%d %b %Y} - "
+    f"Data period: {df['Date'].min():%d %b %Y} – "
     f"{df['Date'].max():%d %b %Y} | "
     f"Records: {len(df):,}"
 )
