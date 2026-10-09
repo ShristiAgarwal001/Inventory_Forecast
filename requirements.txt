@@ -1,0 +1,6 @@
+pandas
+numpy
+openpyxl
+matplotlib>=3.7.0
+seaborn>=0.13.2
+streamlit
