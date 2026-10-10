@@ -18,11 +18,8 @@ OUTPUT_DIR = PROJECT_DIR / "outputs"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 DATA_PATHS = [
-    PROJECT_DIR / "data" / "cleandata" /
-    "retail_store_inventory_cleaned.csv",
-
-    PROJECT_DIR / "outputs" /
-    "retail_store_inventory_cleaned.csv",
+    PROJECT_DIR / "data" / "cleandata" / "retail_store_inventory_cleaned.csv",
+    PROJECT_DIR / "outputs" / "retail_store_inventory_cleaned.csv",
 ]
 
 
@@ -225,6 +222,7 @@ required_columns = {
     "Demand Forecast",
     "Category",
     "Seasonality",
+    "Region",
 }
 
 missing_columns = sorted(
@@ -486,7 +484,9 @@ seasonal_units = (
 )
 
 with chart_right:
-    st.markdown("**Total Units Sold by Seasonality**")
+    st.markdown(
+        "**Total Units Sold by Seasonality**"
+    )
 
     if seasonal_units.empty or seasonal_units.sum() == 0:
         st.info("No seasonal sales data is available.")
@@ -739,6 +739,105 @@ with chart_right:
         )
 
 
+# Chart 7: Region-wise Total Revenue (Bar Chart)
+# --------------------------------------------------
+
+region_summary = (
+    df.groupby("Region")
+    .agg(
+        Total_Revenue=("Total Revenue", "sum"),
+        Total_Units_Sold=("Units Sold", "sum"),
+    )
+    .reset_index()
+    .sort_values(
+        by="Total_Revenue",
+        ascending=False,
+    )
+)
+
+chart_left, chart_right = st.columns(2)
+
+with chart_left:
+    st.markdown("**Total Revenue Performance by Region**")
+
+    if region_summary.empty:
+        st.info("No regional revenue data is available.")
+
+    else:
+        fig, ax = plt.subplots(figsize=(8, 5))
+
+        sns.barplot(
+            data=region_summary,
+            x="Region",
+            y="Total_Revenue",
+            palette="crest",
+            hue="Region",
+            legend=False,
+            ax=ax,
+        )
+
+        for container in ax.containers:
+            ax.bar_label(
+                container,
+                fmt="%.0f",
+                padding=2,
+            )
+
+        ax.set_title("Total Revenue Performance by Region")
+        ax.set_xlabel("Region")
+        ax.set_ylabel("Total Revenue ($)")
+
+        display_chart(
+            fig,
+            "07_region_revenue.png",
+        )
+
+
+# Chart 8: Region-wise Product Category Count Plot
+# --------------------------------------------------
+
+with chart_right:
+    st.markdown(
+        "**Transaction Count by Region and Product Category**"
+    )
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    sns.countplot(
+        data=df,
+        x="Region",
+        hue="Category",
+        palette="Set2",
+        order=["East", "North", "South", "West"],
+        ax=ax,
+    )
+
+    for container in ax.containers:
+        ax.bar_label(
+            container,
+            fmt="%.0f",
+            padding=2,
+            fontsize=8,
+        )
+
+    ax.set_title(
+        "Transaction Count Distribution by Region and Product Category"
+    )
+    ax.set_xlabel("Region")
+    ax.set_ylabel("Number of Transactions")
+
+    ax.legend(
+        title="Category",
+        bbox_to_anchor=(1.05, 1),
+        loc="upper left",
+    )
+
+    display_chart(
+        fig,
+        "08_region_category_countplot.png",
+    )
+
+
 # --------------------------------------------------
 # 14. PRODUCT DEMAND TABLES
 # --------------------------------------------------
@@ -755,6 +854,7 @@ tab1, tab2, tab3 = st.tabs(
 
 
 # Highest-demand products
+
 with tab1:
     st.dataframe(
         product_summary
@@ -770,6 +870,7 @@ with tab1:
 
 
 # Lowest-demand products
+
 with tab2:
     st.dataframe(
         product_summary
@@ -785,6 +886,7 @@ with tab2:
 
 
 # Stock status filter
+
 with tab3:
     status_filter = st.selectbox(
         "Filter by stock status",
