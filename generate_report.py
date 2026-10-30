@@ -1329,9 +1329,8 @@ def build_report():
     subheading("GitHub Repository")
     references = [
         "Github Repo Link : https://github.com/adarshraj2609/Inventory_Forecast",
-        "Dashboard Link : https://inventoryforecast-ljddjdvf9ag6lead2lpprb.streamlit.app/",
-        "Streamlit Link : https://inventoryforecast-ljddjdvf9ag6lead2lpprb.streamlit.app/",
-        "Report Link : "
+        "Streamlit Link : https://inventoryforecast-ljddjdvf9ag6lead2lpprb.streamlit.app/"
+        
     ]
     story.extend(bullets(references))
     story.append(Spacer(1, 0.2 * cm))
